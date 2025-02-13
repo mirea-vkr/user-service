@@ -1,4 +1,4 @@
-package mirea.vkr.user_service.model.dto;
+package mirea.vkr.user_service.model.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
