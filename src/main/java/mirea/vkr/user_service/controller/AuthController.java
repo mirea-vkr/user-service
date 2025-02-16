@@ -2,12 +2,15 @@ package mirea.vkr.user_service.controller;
 
 import lombok.RequiredArgsConstructor;
 import mirea.vkr.user_service.model.dto.request.LoginRequest;
+import mirea.vkr.user_service.model.dto.request.LogoutRequest;
 import mirea.vkr.user_service.model.dto.request.RegisterRequest;
 import mirea.vkr.user_service.model.dto.request.TokenRefreshRequest;
 import mirea.vkr.user_service.model.dto.response.LoginResponse;
 import mirea.vkr.user_service.model.dto.response.RefreshTokenResponse;
 import mirea.vkr.user_service.service.JwtService;
+import mirea.vkr.user_service.service.RefreshTokenService;
 import mirea.vkr.user_service.service.UserService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
@@ -20,6 +23,7 @@ import java.util.Map;
 public class AuthController {
     private final UserService userService;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody @Valid RegisterRequest request) {
@@ -40,16 +44,26 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@RequestBody @Valid TokenRefreshRequest request) {
-        String refreshToken = request.getRefreshToken();
+    public ResponseEntity<Map<String, String>> refresh(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
         String email = jwtService.extractEmail(refreshToken);
 
-        if (!jwtService.isTokenValid(refreshToken, email)) {
-            return ResponseEntity.status(401).body(Map.of("error", "Refresh-токен недействителен"));
+        if (!jwtService.isRefreshTokenValid(email, refreshToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid refresh token"));
         }
 
         String newAccessToken = jwtService.generateAccessToken(email);
-        return ResponseEntity.ok().body(new RefreshTokenResponse(newAccessToken));
+        String newRefreshToken = jwtService.generateRefreshToken(email);
+
+        return ResponseEntity.ok(Map.of("accessToken", newAccessToken, "refreshToken", newRefreshToken));
+    }
+
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@RequestBody LogoutRequest request) {
+        String email = jwtService.extractEmail(request.getRefreshToken());
+        refreshTokenService.deleteRefreshToken(email);
+        return ResponseEntity.ok("Logged out successfully");
     }
 }
 

@@ -24,6 +24,12 @@ public class JwtService {
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
+    private final RefreshTokenService refreshTokenService;
+
+    public JwtService(RefreshTokenService refreshTokenService) {
+        this.refreshTokenService = refreshTokenService;
+    }
+
     private SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode("kYpN5+MWfjZqYnmA19qzWkN528TY3KhCCMgg8SAZyT4="); // Вставь свой ключ
         return Keys.hmacShaKeyFor(keyBytes);
@@ -43,7 +49,13 @@ public class JwtService {
     }
 
     public String generateRefreshToken(String email) {
-        return generateToken(email, refreshTokenExpiration);
+        String refreshToken = generateToken(email, refreshTokenExpiration);
+        refreshTokenService.saveRefreshToken(email, refreshToken);
+        return refreshToken;
+    }
+
+    public boolean isRefreshTokenValid(String email, String refreshToken) {
+        return refreshTokenService.isRefreshTokenValid(email, refreshToken);
     }
 
     public String extractEmail(String token) {
@@ -58,10 +70,7 @@ public class JwtService {
                 .getPayload();
         return claimsResolver.apply(claims);
     }
-
-    public boolean isTokenValid(String token, String email) {
-        return extractEmail(token).equals(email) && !isTokenExpired(token);
-    }
+    
 
     private boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());
